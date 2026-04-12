@@ -1,4 +1,4 @@
-#define FUSE_USE_VERSION 26
+#define FUSE_USE_VERSION 31
 
 #include <fuse.h>
 #include <stdio.h>
@@ -167,7 +167,8 @@ int copy_on_write(const char *fuse_path) {
 /**
  * Get file attributes
  */
-static int unionfs_getattr(const char *path, struct stat *stbuf) {
+static int unionfs_getattr(const char *path, struct stat *stbuf,
+                           struct fuse_file_info *fi) {
     char resolved_path[4096];
     int layer;
 
