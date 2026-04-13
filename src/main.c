@@ -1,4 +1,4 @@
-#define FUSE_USE_VERSION 30
+#define FUSE_USE_VERSION 31
 
 #include <fuse3/fuse.h>
 #include <stdio.h>
@@ -9,43 +9,29 @@
 #include "state.h"
 #include "operations.h"
 
-static int dummy_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
-    (void) fi;
-    memset(stbuf, 0, sizeof(struct stat));
+// Forward declarations (implemented in unionfs_cow.c)
+int unionfs_getattr(const char *, struct stat *, struct fuse_file_info *);
+int unionfs_readdir(const char *, void *, fuse_fill_dir_t, off_t,
+                    struct fuse_file_info *, enum fuse_readdir_flags);
+int unionfs_read(const char *, char *, size_t, off_t, struct fuse_file_info *);
+int unionfs_open(const char *, struct fuse_file_info *);
+int unionfs_write(const char *, const char *, size_t, off_t, struct fuse_file_info *);
+int unionfs_create(const char *, mode_t, struct fuse_file_info *);
+int unionfs_unlink(const char *);
+int unionfs_mkdir(const char *, mode_t);
+int unionfs_rmdir(const char *);
 
-    if (strcmp(path, "/") == 0) {
-        stbuf->st_mode = S_IFDIR | 0755;
-        stbuf->st_nlink = 2;
-        return 0;
-    }
-
-    return -ENOENT;
-}
-
-static int dummy_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    return -ENOENT;
-}
-static int dummy_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                         off_t offset, struct fuse_file_info *fi,
-                         enum fuse_readdir_flags flags) {
-
-    (void) offset;
-    (void) fi;
-    (void) flags;
-
-    if (strcmp(path, "/") != 0)
-        return -ENOENT;
-
-    filler(buf, ".", NULL, 0, 0);
-    filler(buf, "..", NULL, 0, 0);
-
-    return 0;
-}
-// FUSE operations (HOOKS for teammates)
+// FUSE operations — all wired to real implementations
 static struct fuse_operations unionfs_oper = {
-    .getattr = dummy_getattr,
-    .read = dummy_read,
-    .readdir = dummy_readdir,
+    .getattr = unionfs_getattr,
+    .open    = unionfs_open,
+    .read    = unionfs_read,
+    .write   = unionfs_write,
+    .create  = unionfs_create,
+    .readdir = unionfs_readdir,
+    .unlink  = unionfs_unlink,
+    .mkdir   = unionfs_mkdir,
+    .rmdir   = unionfs_rmdir,
 };
 
 int main(int argc, char *argv[]) {
@@ -65,12 +51,11 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    // SHIFT arguments correctly for FUSE3
+    // Shift arguments so FUSE sees: program mountpoint [fuse-opts]
     for (int i = 1; i < argc - 2; i++) {
         argv[i] = argv[i + 2];
     }
-
-    argc = argc - 2;
+    argc -= 2;
 
     return fuse_main(argc, argv, &unionfs_oper, state);
 }
