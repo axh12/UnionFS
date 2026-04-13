@@ -1,3 +1,7 @@
+mini_unionfs
 unionfs
-mountpoint/
 *.o
+
+lower/
+upper/
+mountpoint/
